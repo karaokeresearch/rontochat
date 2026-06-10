@@ -45,19 +45,59 @@
 
     #header strong { font-size: 15px; }
 
-    #status { color: #999; font-size: 12px; }
+    #status {
+      color: #999;
+      font-size: 12px;
+      cursor: default;
+      position: relative;
+    }
+
+    #status[data-tooltip]:hover::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      background: #222;
+      color: #fff;
+      padding: 7px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      line-height: 1.5;
+      width: 210px;
+      white-space: normal;
+      z-index: 10;
+      pointer-events: none;
+    }
 
     #clear {
       background: none;
-      border: none;
-      color: #ccc;
+      border: 1px solid #ddd;
+      color: #555;
       font: inherit;
       font-size: 12px;
       cursor: pointer;
-      padding: 3px 8px;
+      padding: 3px 10px;
       border-radius: 4px;
     }
-    #clear:hover { color: #888; background: #f5f5f4; }
+    #clear:hover { background: #f5f5f4; border-color: #bbb; color: #111; }
+
+    #github-link { color: #999; font-size: 12px; text-decoration: none; }
+    #github-link:hover { color: #111; }
+
+    #error-screen {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 8px;
+      color: #999;
+      font-size: 13px;
+      padding: 2rem;
+      text-align: center;
+      line-height: 1.6;
+    }
+    #error-screen strong { color: #111; font-size: 15px; }
 
     /* messages */
     #log {
@@ -147,13 +187,12 @@
 <div id="app">
 
 <div id="header">
-  <div style="display:flex;align-items:center;gap:10px">
-    <strong>rontochat</strong>
-    <a href="https://github.com/karaokeresearch/rontochat" target="_blank" rel="noopener" style="color:#ccc;font-size:12px;text-decoration:none">github</a>
-  </div>
-  <div style="display:flex;align-items:center;gap:10px">
+  <strong>rontochat</strong>
+  <div style="display:flex;align-items:center;gap:12px">
     <button id="clear">clear</button>
     <span id="status">loading…</span>
+    <span style="color:#ddd">|</span>
+    <a id="github-link" href="https://github.com/karaokeresearch/rontochat" target="_blank" rel="noopener">view on GitHub</a>
   </div>
 </div>
 
@@ -327,7 +366,8 @@
           });
         }
       });
-      status.textContent = 'on-device';
+      status.textContent = 'local model: Gemini Nano';
+      status.dataset.tooltip = 'This model runs entirely on the 4GB LLM your browser provider downloaded to your local computer without your permission 😜. So, no Internet connection is needed. Try disconnecting your Wi-Fi... It still works!';
       input.disabled = false;
       btn.disabled   = false;
       input.focus();
@@ -336,14 +376,33 @@
     }
   }
 
+  function showError(title, detail) {
+    log.innerHTML = '';
+    const el = document.createElement('div');
+    el.id = 'error-screen';
+    el.innerHTML = `<strong>${title}</strong><span>${detail}</span>`;
+    log.appendChild(el);
+  }
+
   async function init() {
     if (!('LanguageModel' in window)) {
-      status.textContent = 'needs Chrome 138+';
+      showError(
+        'Browser not supported',
+        'rontochat requires the Chrome Prompt API, available in Chrome 138+ with AI features enabled. Try opening chrome://flags and enabling "Prompt API for Gemini Nano".'
+      );
+      status.textContent = 'unsupported';
       return;
     }
     try {
       const avail = await LanguageModel.availability();
-      if (avail === 'unavailable') { status.textContent = 'unavailable on this device'; return; }
+      if (avail === 'unavailable') {
+        showError(
+          'Model unavailable',
+          'Your device doesn\'t meet the requirements for on-device AI (16 GB RAM, 22 GB free storage, and a supported GPU are needed).'
+        );
+        status.textContent = 'unavailable';
+        return;
+      }
       status.textContent = avail === 'downloadable' ? 'downloading…' : 'loading…';
     } catch (e) {
       status.textContent = 'error: ' + e.message;
